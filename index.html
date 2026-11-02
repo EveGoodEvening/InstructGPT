@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>InstructGPT 图解</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;700;900&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: a picture book. One column, each idea = one huge drawing + one short line. */
+:root{
+  --bg:#e9eef6; --panel:#f7f9fd; --card:#ffffff; --ink:#1b2440; --soft:#5a6582;
+  --grey:#a9b3c8; --sun:#f5b915; --teal:#1f9e89; --pink:#e86a92; --red:#d9474b; --green:#1f9e5a;
+  --skin:#f6cfb0; --screen:#1b2440; --eye:#f5f8ff; --rule:#d3dbe8;
+  --display:"ZCOOL KuaiLe","Noto Sans SC",system-ui,sans-serif;
+  --body:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121828; --panel:#1a2236; --card:#232d46; --ink:#e9edf7; --soft:#a3aec8;
+  --grey:#66728f; --sun:#f5c033; --teal:#2bb39b; --pink:#f08aa8; --red:#f06b6f; --green:#3cc47a;
+  --skin:#e2b896; --screen:#0b0f1c; --eye:#f5f8ff; --rule:#2d3852; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#121828; --panel:#1a2236; --card:#232d46; --ink:#e9edf7; --soft:#a3aec8;
+  --grey:#66728f; --sun:#f5c033; --teal:#2bb39b; --pink:#f08aa8; --red:#f06b6f; --green:#3cc47a;
+  --skin:#e2b896; --screen:#0b0f1c; --eye:#f5f8ff; --rule:#2d3852; color-scheme:dark }
+
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.7;font-size:17px}
+.wrap{max-width:980px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:40px 64px;display:flex;flex-direction:column;gap:56px}
+header{display:flex;flex-direction:column;gap:6px}
+.eyebrow{font-family:var(--mono);font-size:13px;letter-spacing:.08em;color:var(--soft);text-transform:uppercase}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(40px,8vw,76px);line-height:1.1;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-weight:400;font-size:clamp(28px,5vw,42px);line-height:1.2;margin:0;text-wrap:balance}
+.lede{font-size:clamp(18px,2.4vw,22px);color:var(--soft);margin:0;max-width:34em}
+section{display:flex;flex-direction:column;gap:14px}
+.fig{background:var(--panel);border-radius:28px;padding:12px;overflow:hidden}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:clamp(18px,2.3vw,21px);margin:0;max-width:36em}
+.cap b{background:linear-gradient(transparent 62%,color-mix(in srgb,var(--sun) 55%,transparent) 62%)}
+.step{display:flex;align-items:center;gap:14px}
+.num{flex:none;width:52px;height:52px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-family:var(--mono);font-weight:700;font-size:24px}
+.divider{font-family:var(--display);font-size:clamp(30px,6vw,52px);text-align:center;margin:0}
+.divider small{display:block;font-family:var(--body);font-size:16px;color:var(--soft)}
+
+/* svg styling */
+.line{stroke:var(--ink);stroke-width:4;stroke-linejoin:round}
+.stk{stroke:var(--ink);stroke-width:4;stroke-linecap:round;fill:none}
+.thin{stroke:var(--soft);stroke-width:3;stroke-linecap:round;fill:none}
+.c-old{fill:var(--grey)} .c-new{fill:var(--sun)} .c-judge{fill:var(--teal)} .c-human{fill:var(--pink)}
+.skin{fill:var(--skin)} .hair{fill:var(--ink)}
+.screen{fill:var(--screen)} .eye{fill:var(--eye)} .mouth{stroke:var(--eye);stroke-width:3.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.bub{fill:var(--card);stroke:var(--ink);stroke-width:3.5;stroke-linejoin:round}
+.t{fill:var(--ink);font-family:var(--body);font-weight:700}
+.ts{fill:var(--soft);font-family:var(--body)}
+.tm{fill:var(--ink);font-family:var(--mono);font-weight:700}
+.tms{fill:var(--soft);font-family:var(--mono)}
+.arrow{stroke:var(--ink);stroke-width:4;fill:none;stroke-linecap:round;marker-end:url(#ah)}
+.ahd{fill:var(--ink)}
+.bad{fill:var(--red)} .good{fill:var(--green)} .pinkf{fill:var(--pink)} .sunf{fill:var(--sun)} .tealf{fill:var(--teal)} .greyf{fill:var(--grey)}
+.white{fill:var(--eye)}
+
+/* stat cards */
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:720px){.stats{grid-template-columns:1fr}}
+.stat{background:var(--panel);border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.stat h3{font-family:var(--display);font-weight:400;font-size:28px;margin:0}
+.bar{display:grid;grid-template-columns:7.2em 1fr;align-items:center;gap:10px;font-size:14px}
+.bar span:first-child{font-family:var(--mono);color:var(--soft)}
+.track{height:30px;border-radius:8px;background:color-mix(in srgb,var(--grey) 25%,transparent);position:relative}
+.fill{height:100%;border-radius:8px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-family:var(--mono);font-weight:700;font-size:14px;color:var(--ink);box-sizing:border-box}
+.fill.o{background:var(--grey)} .fill.n{background:var(--sun);color:#1b2440}
+.stat .note{font-size:15px;color:var(--soft);margin:0}
+.verdict{font-weight:700;font-size:18px}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:720px){.two{grid-template-columns:1fr}}
+.two p{margin:0;font-size:18px}
+
+footer{border-top:2px dashed var(--rule);padding-top:22px;color:var(--soft);font-size:15px;display:flex;flex-direction:column;gap:6px}
+footer a{color:var(--ink);font-weight:700}
+a:focus-visible{outline:3px solid var(--teal);outline-offset:3px;border-radius:4px}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="ah" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ahd"/></marker>
+</defs></svg>
+
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">OpenAI · 2022 · arXiv 2203.02155</span>
+  <h1>怎样让 AI<br>听懂你的话</h1>
+  <p class="lede">一篇论文，教会了 AI「按你说的做」。ChatGPT 就是从这里长出来的。</p>
+</header>
+
+<!-- HERO: the problem and the fix -->
+<section>
+  <div class="fig"><svg viewBox="0 0 800 500" role="img" aria-label="人问：给6岁小孩讲讲登月。GPT-3 只会接着写类似的问题；InstructGPT 直接给出了回答。">
+    <!-- human -->
+    <g transform="translate(40,270) scale(1.3)" data-human="c-human"></g>
+    <rect x="16" y="120" width="300" height="104" rx="26" class="bub"/>
+    <path d="M100 222 L118 262 L140 222" class="bub"/>
+    <rect x="98" y="218" width="44" height="8" fill="var(--card)"/>
+    <text x="166" y="162" text-anchor="middle" class="t" font-size="27">给 6 岁小孩</text>
+    <text x="166" y="202" text-anchor="middle" class="t" font-size="27">讲讲登月</text>
+
+    <!-- old bot -->
+    <rect x="336" y="22" width="300" height="150" rx="24" class="bub"/>
+    <text x="358" y="70" class="ts" font-size="22">给 6 岁小孩讲讲引力。</text>
+    <text x="358" y="106" class="ts" font-size="22">给 6 岁小孩讲讲相对论。</text>
+    <text x="358" y="142" class="ts" font-size="22">给 6 岁小孩讲讲……</text>
+    <circle cx="630" cy="30" r="22" class="bad"/>
+    <path d="M621 21 L639 39 M639 21 L621 39" stroke="var(--eye)" stroke-width="5" stroke-linecap="round"/>
+    <g transform="translate(660,30) scale(0.95)" data-bot="c-old confused"></g>
+    <text x="717" y="200" text-anchor="middle" class="tm" font-size="20">GPT-3</text>
+
+    <!-- new bot -->
+    <rect x="336" y="270" width="300" height="150" rx="24" class="bub"/>
+    <text x="358" y="318" class="t" font-size="22">人们坐火箭飞上月球，</text>
+    <text x="358" y="354" class="t" font-size="22">在上面走了走、拍了照，</text>
+    <text x="358" y="390" class="t" font-size="22">又平安回到地球。</text>
+    <circle cx="630" cy="278" r="22" class="good"/>
+    <path d="M619 279 L627 287 L642 270" stroke="var(--eye)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <g transform="translate(660,278) scale(0.95)" data-bot="c-new happy"></g>
+    <text x="717" y="450" text-anchor="middle" class="tm" font-size="20">InstructGPT</text>
+
+    <path d="M320 160 L330 120" class="thin" stroke-dasharray="2 9"/>
+    <path d="M320 190 L330 300" class="thin" stroke-dasharray="2 9"/>
+  </svg></div>
+  <p class="cap">同一个问题。老 AI <b>只会接着往下写</b>，新 AI <b>真的在回答你</b>。</p>
+</section>
+
+<!-- WHY -->
+<section>
+  <h2>老 AI 为什么不听话？</h2>
+  <div class="fig"><svg viewBox="0 0 800 400" role="img" aria-label="GPT-3 读了整个互联网，只练过猜下一个字。">
+    <g id="pages"></g>
+    <text x="165" y="385" text-anchor="middle" class="tms" font-size="20">读了整个互联网</text>
+    <g transform="translate(330,150) scale(1.1)" data-bot="c-old neutral"></g>
+    <rect x="500" y="100" width="280" height="200" rx="24" class="bub"/>
+    <text x="530" y="168" class="t" font-size="34">今天天气真</text>
+    <rect x="718" y="138" width="40" height="40" rx="6" fill="none" class="line" stroke-dasharray="6 5"/>
+    <g font-size="28">
+      <rect x="530" y="210" width="62" height="56" rx="14" class="sunf line"/><text x="561" y="248" text-anchor="middle" class="t" style="fill:#1b2440">好</text>
+      <rect x="606" y="210" width="62" height="56" rx="14" class="bub"/><text x="637" y="248" text-anchor="middle" class="ts">热</text>
+      <rect x="682" y="210" width="62" height="56" rx="14" class="bub"/><text x="713" y="248" text-anchor="middle" class="ts">冷</text>
+    </g>
+    <text x="640" y="345" text-anchor="middle" class="tms" font-size="20">唯一的游戏：猜下一个字</text>
+  </svg></div>
+  <p class="cap">它读遍了网上的文字，却只练过一件事：<b>猜下一个字</b>。没人教过它「帮人做事」。</p>
+</section>
+
+<p class="divider">三步把它教会<small>就像带一个新徒弟</small></p>
+
+<!-- STEP 1 -->
+<section>
+  <div class="step"><span class="num">1</span><h2>老师先做示范</h2></div>
+  <div class="fig"><svg viewBox="0 0 800 380" role="img" aria-label="人类老师写下题目和标准答案，AI 照着学。">
+    <g transform="translate(40,170) scale(1.2)" data-human="c-human"></g>
+    <g transform="rotate(-4 300 190)">
+      <rect x="200" y="80" width="210" height="220" rx="16" class="bub"/>
+      <rect x="220" y="100" width="44" height="34" rx="8" class="pinkf"/><text x="242" y="125" text-anchor="middle" class="t" font-size="20" style="fill:#1b2440">题</text>
+      <path d="M278 117 H390" class="thin"/>
+      <rect x="220" y="160" width="44" height="34" rx="8" class="sunf"/><text x="242" y="185" text-anchor="middle" class="t" font-size="20" style="fill:#1b2440">答</text>
+      <path d="M278 177 Q300 170 320 177 T360 177 T392 177 M224 214 Q250 207 276 214 T326 214 T392 214 M224 250 Q250 243 276 250 T330 250" class="stk" stroke-width="3"/>
+    </g>
+    <text x="305" y="345" text-anchor="middle" class="tms" font-size="20">× 约 1.3 万道题</text>
+    <path d="M440 200 H530" class="arrow"/>
+    <g transform="translate(570,120) scale(1.35)" data-bot="c-new happy"></g>
+    <path d="M760 110 l6 -18 l6 18 l18 6 l-18 6 l-6 18 l-6 -18 l-18 -6z" class="sunf"/>
+  </svg></div>
+  <p class="cap">人类老师亲手写好<b>标准答案</b>，AI 照着学。</p>
+</section>
+
+<!-- STEP 2 -->
+<section>
+  <div class="step"><span class="num">2</span><h2>人来排名次，培养一个打分员</h2></div>
+  <div class="fig"><svg viewBox="0 0 800 420" role="img" aria-label="AI 写出几个答案，人把它们从好到差排序，然后用这些排名训练出一个会打分的AI。">
+    <g transform="translate(20,170) scale(1)" data-bot="c-new neutral"></g>
+    <text x="80" y="350" text-anchor="middle" class="tms" font-size="18">写 4~9 个答案</text>
+    <g transform="translate(316,12) scale(0.62)" data-human="c-human"></g>
+    <g id="cards"></g>
+    <text x="350" y="345" text-anchor="middle" class="tms" font-size="20">× 约 3.3 万道题</text>
+    <path d="M560 225 H615" class="arrow"/>
+    <g transform="translate(640,140) scale(1.1)" data-bot="c-judge happy"></g>
+    <rect x="652" y="330" width="108" height="44" rx="12" class="tealf"/>
+    <text x="706" y="361" text-anchor="middle" class="t" font-size="24" style="fill:#fff">打分员</text>
+  </svg></div>
+  <p class="cap">AI 写几个答案，人只要<b>排个名次</b>。学会这些名次的 AI，就成了一个「打分员」。</p>
+</section>
+
+<!-- STEP 3 -->
+<section>
+  <div class="step"><span class="num">3</span><h2>不停练习，看分改进</h2></div>
+  <div class="fig"><svg viewBox="0 0 800 430" role="img" aria-label="AI 写答案交给打分员，打分员给分数，AI 根据分数改进，循环往复。">
+    <g transform="translate(80,130) scale(1.15)" data-bot="c-new happy"></g>
+    <g transform="translate(582,130) scale(1.15)" data-bot="c-judge neutral"></g>
+    <path d="M200 120 Q400 -20 600 120" class="arrow"/>
+    <rect x="345" y="20" width="110" height="64" rx="14" class="bub"/>
+    <path d="M362 42 H438 M362 62 H418" class="thin"/>
+    <path d="M600 330 Q400 470 200 330" class="arrow"/>
+    <rect x="335" y="352" width="130" height="62" rx="31" class="sunf line"/>
+    <text x="400" y="394" text-anchor="middle" class="tm" font-size="28" style="fill:#1b2440">8.7 分</text>
+    <path d="M372 225 a32 32 0 1 1 10 24" class="stk" stroke-width="5" marker-end="url(#ah)"/>
+    <text x="400" y="300" text-anchor="middle" class="ts" font-size="21">循环成千上万次</text>
+  </svg></div>
+  <p class="cap">打分员不会累。AI 每写一次就得一个分，<b>高分的写法越用越多</b>。</p>
+</section>
+
+<p class="divider">结果呢？</p>
+
+<!-- RESULT 1 -->
+<section>
+  <div class="fig"><svg viewBox="0 0 800 470" role="img" aria-label="1750亿参数的GPT-3 与 13亿参数的InstructGPT 比较，人们更喜欢小的那个的回答。">
+    <g transform="translate(40,20) scale(2.6)" data-bot="c-old neutral"></g>
+    <text x="196" y="450" text-anchor="middle" class="tm" font-size="22">GPT-3 · 1750 亿参数</text>
+    <g transform="translate(560,300) scale(0.75)" data-bot="c-new happy"></g>
+    <text x="605" y="450" text-anchor="middle" class="tm" font-size="22">InstructGPT · 13 亿</text>
+    <g class="pinkf">
+      <path transform="translate(560,220)" d="M0 8 C0 -2 14 -2 14 8 C14 -2 28 -2 28 8 C28 18 14 26 14 32 C14 26 0 18 0 8Z"/>
+      <path transform="translate(612,190) scale(1.4)" d="M0 8 C0 -2 14 -2 14 8 C14 -2 28 -2 28 8 C28 18 14 26 14 32 C14 26 0 18 0 8Z"/>
+      <path transform="translate(675,235) scale(0.9)" d="M0 8 C0 -2 14 -2 14 8 C14 -2 28 -2 28 8 C28 18 14 26 14 32 C14 26 0 18 0 8Z"/>
+    </g>
+    <text x="620" y="150" text-anchor="middle" class="t" font-size="28">人们更爱它的回答</text>
+  </svg></div>
+  <p class="cap">小了<b>一百多倍</b>，回答却更受人喜欢。会听话，比块头大更重要。</p>
+</section>
+
+<!-- RESULT 2: stats -->
+<section>
+  <div class="stats">
+    <div class="stat">
+      <h3>更爱说实话</h3>
+      <div class="bar"><span>GPT-3</span><div class="track"><div class="fill o" style="width:48%">1×</div></div></div>
+      <div class="bar"><span>InstructGPT</span><div class="track"><div class="fill n" style="width:96%">约 2×</div></div></div>
+      <p class="note">在专门的「陷阱题」测试里，给出真实又有用回答的次数约翻倍。</p>
+    </div>
+    <div class="stat">
+      <h3>更少瞎编</h3>
+      <div class="bar"><span>GPT-3</span><div class="track"><div class="fill o" style="width:82%">41%</div></div></div>
+      <div class="bar"><span>InstructGPT</span><div class="track"><div class="fill n" style="width:42%">21%</div></div></div>
+      <p class="note">做总结、问答这类任务时，凭空编出原文没有内容的比例。</p>
+    </div>
+    <div class="stat">
+      <h3>更少难听话</h3>
+      <div class="bar"><span>GPT-3</span><div class="track"><div class="fill o" style="width:96%">100</div></div></div>
+      <div class="bar"><span>InstructGPT</span><div class="track"><div class="fill n" style="width:72%">≈75</div></div></div>
+      <p class="note">要求它「礼貌一点」时，冒犯性的输出少了约 25%（以 GPT-3 为 100）。</p>
+    </div>
+  </div>
+</section>
+
+<!-- CAVEATS -->
+<section>
+  <h2>但它还不完美</h2>
+  <div class="fig"><svg viewBox="0 0 800 330" role="img" aria-label="左：AI 仍然会犯错。右：它学的是大约40位标注员的偏好。">
+    <g transform="translate(70,100) scale(1.15)" data-bot="c-new confused"></g>
+    <path d="M250 70 L300 160 H200 Z" class="sunf line"/>
+    <path d="M250 100 V132" stroke="#1b2440" stroke-width="7" stroke-linecap="round"/><circle cx="250" cy="147" r="4.5" fill="#1b2440"/>
+    <line x1="400" y1="30" x2="400" y2="300" class="thin" stroke-dasharray="4 10"/>
+    <g id="crowd"></g>
+    <text x="610" y="300" text-anchor="middle" class="tms" font-size="20">约 40 位标注员</text>
+  </svg></div>
+  <div class="two">
+    <p>它仍会<b>说错话、编事实</b>，偶尔还会照着坏要求去做。</p>
+    <p>它学到的「好」，来自大约 <b>40 个人</b>的口味。换一群人，标准可能不同。</p>
+  </div>
+</section>
+
+<section>
+  <p class="divider">示范 → 打分 → 练习<small>这套配方后来成了 ChatGPT 的底子</small></p>
+</section>
+
+<footer>
+  <span>论文：Ouyang 等，《Training language models to follow instructions with human feedback》，OpenAI，2022。</span>
+  <span><a href="https://arxiv.org/abs/2203.02155">arxiv.org/abs/2203.02155</a> · 图中数字均来自论文，示意图不按比例。</span>
+</footer>
+</div>
+
+<script>
+(function(){
+  function bot(c, mood){
+    var eyes = mood==="confused"
+      ? '<circle cx="46" cy="55" r="7" class="eye"/><circle cx="75" cy="55" r="3.5" class="eye"/>'
+      : '<circle cx="46" cy="55" r="6" class="eye"/><circle cx="74" cy="55" r="6" class="eye"/>';
+    var mouth = mood==="happy" ? '<path d="M48 66 Q60 75 72 66" class="mouth"/>'
+      : mood==="confused" ? '<path d="M46 68 L52 64 L58 68 L64 64 L70 68" class="mouth"/>'
+      : '<path d="M50 67 H70" class="mouth"/>';
+    return '<line x1="60" y1="10" x2="60" y2="28" class="stk"/>'+
+      '<circle cx="60" cy="9" r="7" class="'+c+' line"/>'+
+      '<rect x="3" y="104" width="16" height="38" rx="8" class="'+c+' line"/>'+
+      '<rect x="101" y="104" width="16" height="38" rx="8" class="'+c+' line"/>'+
+      '<rect x="25" y="96" width="70" height="54" rx="14" class="'+c+' line"/>'+
+      '<rect x="15" y="26" width="90" height="66" rx="18" class="'+c+' line"/>'+
+      '<rect x="27" y="38" width="66" height="40" rx="11" class="screen"/>'+eyes+mouth+
+      '<circle cx="60" cy="118" r="7" class="white" opacity=".55"/>';
+  }
+  function human(c){
+    return '<path d="M18 150 Q18 72 60 68 Q102 72 102 150 Z" class="'+c+' line"/>'+
+      '<circle cx="60" cy="34" r="26" class="skin line"/>'+
+      '<path d="M34 32 Q36 6 62 8 Q88 8 86 32 Q74 18 50 22 Q40 24 34 32Z" class="hair"/>'+
+      '<circle cx="51" cy="38" r="3" class="hair"/><circle cx="69" cy="38" r="3" class="hair"/>'+
+      '<path d="M52 48 Q60 54 68 48" class="stk" stroke-width="3"/>';
+  }
+  document.querySelectorAll('[data-bot]').forEach(function(g){var p=g.dataset.bot.split(' ');g.innerHTML=bot(p[0],p[1]);});
+  document.querySelectorAll('[data-human]').forEach(function(g){g.innerHTML=human(g.dataset.human);});
+
+  // pile of web pages
+  var pg='', P=[[40,60,-12],[150,40,8],[70,170,6],[180,160,-7],[30,260,-4],[150,250,10]];
+  P.forEach(function(p){
+    pg+='<g transform="rotate('+p[2]+' '+(p[0]+55)+' '+(p[1]+45)+')"><rect x="'+p[0]+'" y="'+p[1]+'" width="120" height="96" rx="10" class="bub"/>'+
+      '<rect x="'+(p[0]+12)+'" y="'+(p[1]+12)+'" width="96" height="14" rx="4" class="greyf"/>'+
+      '<path d="M'+(p[0]+12)+' '+(p[1]+46)+' H'+(p[0]+104)+' M'+(p[0]+12)+' '+(p[1]+64)+' H'+(p[0]+90)+' M'+(p[0]+12)+' '+(p[1]+82)+' H'+(p[0]+70)+'" class="thin"/></g>';
+  });
+  document.getElementById('pages').innerHTML=pg;
+
+  // ranked cards D > C > A > B
+  var cd='', L=['D','C','A','B'], fills=['sunf','greyf','greyf','greyf'];
+  L.forEach(function(l,i){
+    var x=170+i*100, y=150+i*14;
+    cd+='<rect x="'+x+'" y="'+y+'" width="76" height="100" rx="12" class="bub"/>'+
+      '<text x="'+(x+38)+'" y="'+(y+66)+'" text-anchor="middle" class="tm" font-size="38">'+l+'</text>'+
+      '<circle cx="'+(x+38)+'" cy="'+(y+128)+'" r="17" class="'+(i===0?'sunf':'greyf')+'"/>'+
+      '<text x="'+(x+38)+'" y="'+(y+135)+'" text-anchor="middle" class="tm" font-size="19" style="fill:#1b2440">'+(i+1)+'</text>';
+    if(i<3) cd+='<text x="'+(x+88)+'" y="'+(y+68)+'" text-anchor="middle" class="t" font-size="28">›</text>';
+  });
+  document.getElementById('cards').innerHTML=cd;
+
+  // crowd of ~40
+  var cr='', cols=['c-human','c-new','c-judge','c-old'];
+  for(var r=0;r<5;r++)for(var k=0;k<8;k++){
+    var x=455+k*44+(r%2?10:0), y=50+r*44;
+    cr+='<circle cx="'+x+'" cy="'+y+'" r="11" class="skin"/><path d="M'+(x-15)+' '+(y+30)+' Q'+x+' '+(y+6)+' '+(x+15)+' '+(y+30)+'Z" class="'+cols[(r*8+k)%4]+'"/>';
+  }
+  document.getElementById('crowd').innerHTML=cr;
+})();
+</script>
+</body>
+</html>
